@@ -27,3 +27,7 @@ _Avoid_: Passage, segment (see Segment — different concept), fragment
 **Segment**:
 A dimensional breakdown within a Filing's XBRL data (e.g. product line, business division) rather than the consolidated company-wide figure. Identified by the `is_dimensioned` flag on a statement DataFrame; a Fact can be consolidated or Segment-dimensioned, never both.
 _Avoid_: Division, breakdown
+
+**DocType**:
+The structural family a Filing or SourceDocument belongs to (`10-K`, `10-Q`, `8-K`, `Earnings`), normalized from EDGAR's form string or financebench's manifest label. It is the only input to extraction-engine routing — 10-K/10-Q have an XBRL backend, 8-K/Earnings do not. An amendment keeps its base DocType (`10-K/A` is a 10-K); supersession is tracked separately.
+_Avoid_: Form, document type, doc category

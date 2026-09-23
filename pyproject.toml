@@ -1,0 +1,40 @@
+[project]
+name = "ledgerqa"
+version = "0.1.0"
+description = "RAG agent answering financial questions over SEC filings, evaluated against FinanceBench."
+requires-python = ">=3.11"
+dependencies = [
+    # Pinned exactly: edgartools moves fast and an upstream change to XBRL
+    # parsing or filing metadata would silently break ingestion. All calls to
+    # it are isolated in ledgerqa/sec_adapter.py.
+    "edgartools==5.58.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "mypy==1.18.2",
+    "pytest==8.4.2",
+    "ruff==0.15.13",
+]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["ledgerqa*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+# E501 isn't on by default, so line-length would otherwise go unenforced.
+extend-select = ["E501", "I"]
+
+[tool.mypy]
+python_version = "3.11"
+files = ["ledgerqa"]
+ignore_missing_imports = true

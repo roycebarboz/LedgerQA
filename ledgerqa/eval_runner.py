@@ -13,7 +13,10 @@ from ledgerqa.grader import GradeResult, grade
 from ledgerqa.types import AnswerResult
 
 DEFAULT_DATASET_PATH = (
-    Path(__file__).resolve().parent.parent / "financebench" / "data" / "financebench_open_source.jsonl"
+    Path(__file__).resolve().parent.parent
+    / "financebench"
+    / "data"
+    / "financebench_open_source.jsonl"
 )
 
 AnswerQuestionFn = Callable[[str, str, list[str]], AnswerResult]
@@ -48,7 +51,8 @@ def run_eval(
 
 def format_report(report: EvalReport) -> str:
     lines = [f"{r.financebench_id}: {'PASS' if r.passed else 'FAIL'}" for r in report.results]
-    lines.append(f"Pass rate: {report.pass_rate:.1%} ({sum(r.passed for r in report.results)}/{len(report.results)})")
+    passed = sum(r.passed for r in report.results)
+    lines.append(f"Pass rate: {report.pass_rate:.1%} ({passed}/{len(report.results)})")
     return "\n".join(lines)
 
 

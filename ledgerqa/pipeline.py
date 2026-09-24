@@ -49,7 +49,7 @@ def answer_question(
         except UnroutableDocTypeError:
             rejections.append(f"{doc_name}: no extraction engine for doc_type {doc_type}")
             continue
-        return engine.extract(question, source_document, filing)
+        return engine.extract(question, source_document, filing, client=client)
 
     return AnswerResult(
         answer=(

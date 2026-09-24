@@ -5,27 +5,36 @@ was selected, how the catalog resolved a doc_name, or any other internal.
 The SEC network boundary (`SECDataClientAdapter`) is substituted by a fake;
 nothing else is faked.
 
-While both engines are stubs, the engine that ran is the only externally
-visible difference between the two routes, so these tests read it out of the
-answer string. Tickets 03 and 05 replace each assertion with a gold-answer and
-citation assertion as the engine behind it starts answering for real.
+The layout engine (ticket 05) is still a stub, so its route is read out of the
+answer string ("layout"). The XBRL engine (ticket 03) answers for real now;
+this fake never resolves a Fact, so its route reads as an explicit
+"not found" rather than the old "xbrl"-in-the-answer placeholder. Real
+Fact-resolution + citation assertions live in test_xbrl_extraction.py.
 """
 
 from ledgerqa.eval_runner import load_gold_questions
 from ledgerqa.pipeline import answer_question
-from ledgerqa.types import DocType, Filing, SourceDocument
+from ledgerqa.types import DocType, Fact, Filing, SourceDocument
 
 
 class FakeSECDataClient:
-    """Stands in for live EDGAR: hands back whatever Filing the test wants."""
+    """Stands in for live EDGAR: hands back whatever Filing/Fact the test wants."""
 
-    def __init__(self, filing: Filing | None = None):
+    def __init__(self, filing: Filing | None = None, fact: Fact | None = None):
         self._filing = filing
+        self._fact = fact
         self.requested_accession_numbers: list[str] = []
+        self.requested_facts: list[tuple[str, str, int | None]] = []
 
     def get_filing(self, accession_number: str) -> Filing | None:
         self.requested_accession_numbers.append(accession_number)
         return self._filing
+
+    def get_fact(
+        self, accession_number: str, concept: str, fiscal_year: int | None = None
+    ) -> Fact | None:
+        self.requested_facts.append((accession_number, concept, fiscal_year))
+        return self._fact
 
 
 class StubCatalog:
@@ -37,6 +46,8 @@ class StubCatalog:
 
 
 def test_ten_k_source_document_is_answered_by_the_xbrl_engine():
+    """The fake never resolves a Fact, so a real XBRL-routed question reads as
+    an explicit not-found rather than a guess or the layout stub's text."""
     result = answer_question(
         "What is the FY2018 capital expenditure amount (in USD millions) for 3M?",
         "3M",
@@ -44,7 +55,8 @@ def test_ten_k_source_document_is_answered_by_the_xbrl_engine():
         client=FakeSECDataClient(),
     )
 
-    assert "xbrl" in result.answer.lower()
+    assert "not found" in result.answer.lower()
+    assert "layout" not in result.answer.lower()
 
 
 def test_earnings_source_document_is_answered_by_the_layout_engine():
@@ -73,6 +85,9 @@ def test_a_numeric_question_on_an_earnings_document_still_routes_to_layout():
 
 
 def test_a_qualitative_question_on_a_ten_k_still_routes_to_xbrl():
+    """A narrative question routes to XBRL (it's a 10-K), but the engine can't
+    map it to a concept/fiscal-year, so it reports insufficient data rather
+    than the layout stub's text."""
     result = answer_question(
         "Why did 3M describe its business as capital intensive?",
         "3M",
@@ -80,7 +95,8 @@ def test_a_qualitative_question_on_a_ten_k_still_routes_to_xbrl():
         client=FakeSECDataClient(),
     )
 
-    assert "xbrl" in result.answer.lower()
+    assert "insufficient data" in result.answer.lower()
+    assert "layout" not in result.answer.lower()
 
 
 def test_routing_follows_the_resolved_filings_doc_type_not_the_catalog_label():
@@ -153,7 +169,7 @@ def test_doc_scope_falls_through_to_the_first_resolvable_document():
         client=FakeSECDataClient(),
     )
 
-    assert "xbrl" in result.answer.lower()
+    assert "not found" in result.answer.lower()
 
 
 def test_every_financebench_question_routes_to_an_extraction_engine():
@@ -196,7 +212,8 @@ def test_routing_follows_the_filing_when_the_catalog_understates_the_doc_type():
         catalog=StubCatalog(catalog_says_earnings),
     )
 
-    assert "xbrl" in result.answer.lower()
+    assert "insufficient data" in result.answer.lower()
+    assert "layout" not in result.answer.lower()
 
 
 def test_company_may_be_passed_as_a_list():
@@ -208,4 +225,4 @@ def test_company_may_be_passed_as_a_list():
         client=FakeSECDataClient(),
     )
 
-    assert "xbrl" in result.answer.lower()
+    assert "not found" in result.answer.lower()

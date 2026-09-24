@@ -9,7 +9,7 @@ import os
 
 import edgar
 
-from ledgerqa.types import DocType, Filing
+from ledgerqa.types import DocType, Fact, Filing
 
 IDENTITY_ENV_VAR = "LEDGERQA_SEC_IDENTITY"
 
@@ -55,10 +55,52 @@ class SECDataClientAdapter:
         edgar.set_identity(self.identity)
 
     def get_filing(self, accession_number: str) -> Filing | None:
-        found = edgar.find(accession_number)
-        if not isinstance(found, edgar.Filing):
+        found = self._find_filing(accession_number)
+        if found is None:
             return None
         return self._to_filing(found)
+
+    def get_fact(
+        self,
+        accession_number: str,
+        concept: str,
+        fiscal_year: int | None = None,
+    ) -> Fact | None:
+        found = self._find_filing(accession_number)
+        if found is None:
+            return None
+        xbrl = found.xbrl()
+        if xbrl is None:
+            return None
+
+        query = xbrl.query().by_concept(concept, exact=True)
+        if fiscal_year is not None:
+            query = query.by_fiscal_year(fiscal_year)
+        facts = query.execute()
+        if not facts:
+            return None
+
+        # An annual ("FY") fact is preferred when the concept also has
+        # quarterly facts tagged for the same fiscal_year.
+        annual_facts = [f for f in facts if f.get("fiscal_period") == "FY"]
+        fact = (annual_facts or facts)[0]
+        value = fact.get("numeric_value")
+        if value is None:
+            return None
+
+        raw_fiscal_year = fact.get("fiscal_year")
+        return Fact(
+            concept=concept,
+            value=float(value),
+            label=str(fact.get("label") or concept),
+            accession_number=found.accession_no,
+            fiscal_year=int(raw_fiscal_year) if raw_fiscal_year is not None else None,
+        )
+
+    @staticmethod
+    def _find_filing(accession_number: str) -> "edgar.Filing | None":
+        found = edgar.find(accession_number)
+        return found if isinstance(found, edgar.Filing) else None
 
     @staticmethod
     def _to_filing(filing: "edgar.Filing") -> Filing | None:

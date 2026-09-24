@@ -3,6 +3,7 @@
 from dataclasses import dataclass
 
 from ledgerqa.engines import insufficient_data
+from ledgerqa.sec_client import SECDataClient
 from ledgerqa.types import AnswerResult, Filing, SourceDocument
 
 
@@ -15,5 +16,7 @@ class LayoutExtractionEngine:
         question: str,
         source_document: SourceDocument,
         filing: Filing | None,
+        *,
+        client: SECDataClient | None = None,
     ) -> AnswerResult:
         return insufficient_data(self.name, source_document)
